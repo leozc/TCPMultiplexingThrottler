@@ -5,34 +5,31 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace multiplexingThrottler
 {
-    //shamelessly copy/insprited from http://stackoverflow.com/questions/6023264/high-performance-tcp-server-in-c-sharp
-    class ClientContext
-    {
-        public TcpClient Client;
-        public Stream Stream;
-        public byte[] Buffer = new byte[8];
-        public MemoryStream Message = new MemoryStream();
-    }
-
-    class DummyServer
+   
+    public class DummyServer
     {
         private int port = 0;
         public TcpListener Server = null;
+        public ManualResetEvent m = new ManualResetEvent(false);
         public DummyServer(int port)
         {
             this.port = port;
         }
-        public void GetListener()
+        /**
+         * Single Cycle Listener
+         */
+        public void Start()
         {
             TcpListener server = new TcpListener(IPAddress.Any, port);
             // we set our IP address as server's address, and we also set the port: 9999
 
             server.Start();  // this will start the server
-
+            m.Set();
             ASCIIEncoding encoder = new ASCIIEncoding();
             //we use this to transform the message(string) into a byte array, so we can send it
 

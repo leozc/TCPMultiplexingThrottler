@@ -101,27 +101,32 @@ namespace Tester
         [TestCategory("send")]
         public void TestSend_simple()
         {
-
             var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
             var bps = new List<int>();
+            var liseners = new List<DummyServer>();
             const int baseport = 8000;
             _clientConnectionChecked = new Dictionary<int, bool>();
+            //single server
             for (int i = 0; i < 1; i++)
             {
                 int port = baseport + i;
                 ips.Add("127.0.0.1:" + (port));
                 bps.Add(i + 1);
                 _clientConnectionChecked.Add(port, false);
-                tcps.Add(GetTCPLisener(port));
+
+                var server = new DummyServer(port);
+                var oThread = new Thread(new ThreadStart(server.Start));
+
+                liseners.Add(server);
+
             }
             var b = new Byte[128];
 
             var mt = new MultiplexThrottler(ips, bps, b);
-
-
+            Assert.IsTrue(liseners.All(t => t.m.WaitOne(20000)));
+            Assert.AreEqual(1, liseners.Count);
             mt.ConnectAllDevices();
-            Assert.IsTrue(_clientConnectionChecked.Values.All(t => t));
-            Assert.AreEqual(64, _clientConnectionChecked.Values.Count);
+
             mt.DeliverAllDevices();
         }
         #region test upload
@@ -149,37 +154,7 @@ namespace Tester
             
         }
 
-        /// <summary>
-        /// Callback for Read operation
-        /// </summary>
-        /// <param name="result">The AsyncResult object</param>
-        private void ReadCallback(IAsyncResult result)
-        {
-            int read;
-            NetworkStream networkStream;
-            try
-            {
-                
-                networkStream = tcpClient.GetStream();
-                read = networkStream.EndRead(result);
-            }
-            catch (Exception e)
-            {
-                throw e; // just throw
-            }
-
-            if (read == 0)
-            {
-                //The connection has been closed.
-                return;
-            }
-
-            byte[] buffer = result.AsyncState as byte[];
-            string data = this.Encoding.GetString(buffer, 0, read);
-            //Do something with the data object here.
-            //Then start reading from the network again.
-            networkStream.BeginRead(buffer, 0, buffer.Length, ReadCallback, buffer);
-        }
+      
 
         #endregion
 

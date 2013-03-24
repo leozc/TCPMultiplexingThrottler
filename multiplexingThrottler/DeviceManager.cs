@@ -53,12 +53,12 @@ namespace multiplexingThrottler
 
         public Socket Client { get; set; }
 
-        private int EndIdx
+        public int EndIdx
         {
             get { return _endIdx; }
         }
 
-        private int StartIdx
+        public int StartIdx
         {
             get { return _startIdx; }
         }

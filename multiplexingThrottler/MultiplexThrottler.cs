@@ -116,7 +116,7 @@ namespace multiplexingThrottler
             foreach (DeviceManager s in Ds)
             {
                 // start transmit
-                policy.(s);
+                policy.DispatchOneDataCycle(s);
             }
         }
      
