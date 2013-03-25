@@ -26,7 +26,7 @@ namespace multiplexingThrottler
            worker.Start();
         }
 
-       public void DispatchOneDataCycle(IDeviceManager dm)
+        public virtual void DispatchOneDataCycle(IDeviceManager dm)
        {
            // Convert the string data to byte data using ASCII encoding.
            ////// get the number of future block
@@ -34,7 +34,7 @@ namespace multiplexingThrottler
            if (r == null)
                Console.WriteLine(dm.Ipaddr.ToString() + " completed");
        }
-       public void SendCompleteHandler(IAsyncResult deviceManager)
+        public virtual void SendCompleteHandler(IAsyncResult deviceManager)
        {
            
            try
@@ -76,7 +76,7 @@ namespace multiplexingThrottler
                     {
                         dm = todoqueue.DeleteMin();
                     }
-                    catch (NoSuchItemException e)
+                    catch (NoSuchItemException)
                     {
                     }
                 }
