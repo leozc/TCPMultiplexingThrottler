@@ -32,6 +32,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="C5">
+      <HintPath>..\packages\C5.2.2.4822.42600\lib\portable-win+net40+sl40+wp+Xbox40\C5.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -41,10 +44,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AsyncSocketClient.cs" />
+    <Compile Include="CatchupThrottlerPolicyHandler.cs" />
+    <Compile Include="DeviceMetric.cs" />
+    <Compile Include="SimplePerDataBlockThrottlerPolicyHandler.cs" />
+    <Compile Include="DummyThrottlerPolicyHandler.cs" />
     <Compile Include="IThrottlerPoclicyHandler.cs" />
-    <Compile Include="TCPAsyncServerHelper.cs" />
-    <Compile Include="ThrottlerPolicyHandler.cs" />
     <Compile Include="DeviceManager.cs" />
     <Compile Include="IDeviceManager.cs" />
     <Compile Include="MultiplexThrottler.cs" />
@@ -53,6 +57,12 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="SampleInput.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

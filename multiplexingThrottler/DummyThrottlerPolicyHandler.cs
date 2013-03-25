@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Threading;
-
+using System.Net.Sockets;
 namespace multiplexingThrottler
 {
-   public class DummyThrottlerPolicyHandler : IThrottlerPoclicyHandler
+   /**
+    * Dummy Sleep timerbased throttler, does nothing good but testing
+    */
+   public class UnlimitedThrottlerPolicyHandler : IThrottlerPoclicyHandler
    {
-
-       public void DispatchOneDataCycle(DeviceManager dm)
+       public void DispatchOneDataCycle(IDeviceManager dm)
        {
            // Convert the string data to byte data using ASCII encoding.
            IAsyncResult r = dm.DeliveryNextBlockOfData(SendCompleteHandler);
@@ -17,11 +19,12 @@ namespace multiplexingThrottler
        {
            try
            {
-               var dm = deviceManager as DeviceManager;
+               var dm = deviceManager.AsyncState as DeviceManager;
                if (dm == null)
                    throw new ArgumentException("Hey what is wrong here? The DispatchOneDataCycle put in wrong arg??? Found: "+deviceManager.GetType());
-               dm.Client.EndSend(deviceManager);
-               Thread.Sleep(500);
+               var byteTransferred = dm.Client.EndSend(deviceManager);
+
+              // Thread.Sleep(2);
                DispatchOneDataCycle(dm);
            }
            catch (Exception e)
@@ -29,6 +32,5 @@ namespace multiplexingThrottler
                Console.WriteLine(e.ToString());
            }
        }
-
    }
 }

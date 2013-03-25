@@ -51,6 +51,7 @@
     </Otherwise>
   </Choose>
   <ItemGroup>
+    <Compile Include="DummyServer.cs" />
     <Compile Include="TestConnection.cs" />
     <Compile Include="TestStructure.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

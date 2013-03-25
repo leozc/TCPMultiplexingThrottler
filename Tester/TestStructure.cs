@@ -20,14 +20,14 @@ namespace Tester
             var ips = new List<String>(){"192.168.1.1:8000","192.168.1.1:8001","192.168.1.1:8002","192.168.1.1:8003"};
             var bps = new List<int>(){1,2,3,4};
             var b = new Byte[1024];
-            var ds = new MultiplexThrottler(ips, bps, b).DestSpecs;
+            var ds = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, b).DeviceManagers;
 
             for (int i =0;i<ds.Count;i++)
             {
                 Console.WriteLine("Start = " + ds[i].StartIdx + " End = " +ds[i].EndIdx + " Size= "+(ds[i].EndIdx-ds[i].StartIdx));
                 Assert.AreEqual(256*i,ds[i].StartIdx);
-                Assert.AreEqual(256*(i+1)-1, ds[i].EndIdx);
-                Assert.AreEqual(255, ds[i].EndIdx - ds[i].StartIdx);
+                Assert.AreEqual(256*(i+1), ds[i].EndIdx);
+                Assert.AreEqual(256, ds[i].EndIdx - ds[i].StartIdx);
                 Assert.AreEqual(i+1, ds[i].SpeedInBitPerSecond);
             }
         }
@@ -41,7 +41,7 @@ namespace Tester
             var ips = new List<String>() { "192.168.1.1:8000", "192.168.1.1:8001", "192.168.1.1:8002", "192.168.1.1:8003" };
             var bps = new List<int>() { 1, 2, 3, 4,111111 };
             var b = new Byte[1024];
-            var ds = new MultiplexThrottler(ips, bps, b).DestSpecs;
+            var ds = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, b).DeviceManagers;
         }
 
         [TestMethod]
@@ -54,7 +54,7 @@ namespace Tester
             var ips = new List<String>() { "192.168.1.1:8000", "192.168.1.1:8001", "192.168.1.1:8002", "192.168.1.1:8003" };
             var bps = new List<int>() { 1, 2, 3, 4 };
             var b = new Byte[1023]; // die ... 
-            var ds = new MultiplexThrottler(ips, bps, b).DestSpecs;
+            var ds = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, b).DeviceManagers;
         }
     }
 }

@@ -10,10 +10,12 @@ namespace multiplexingThrottler
         /// </summary>
         /// <param name="deviceManager">It is a IDeviceManager</param>
         void SendCompleteHandler(IAsyncResult deviceManager);
+
         /// <summary>
         /// Instruct device manager to send out data  
         /// </summary>
+        /// <param name="deviceManager"></param>
         /// <param name="dm"></param>
-        void DispatchOneDataCycle(DeviceManager deviceManager);
+        void DispatchOneDataCycle(IDeviceManager deviceManager);
     }
 }

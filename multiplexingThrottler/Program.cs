@@ -1,64 +1,94 @@
 ﻿using System;
 using System.Threading;
-
-class TimerExample
+using System.IO;
+using System.Collections.Generic;
+using System.Diagnostics;
+namespace multiplexingThrottler
 {
-    static void Main()
+    public class Runner
     {
-        // Create an event to signal the timeout count threshold in the 
-        // timer callback.
-        AutoResetEvent autoEvent = new AutoResetEvent(false);
-
-        StatusChecker statusChecker = new StatusChecker(10);
-
-        // Create an inferred delegate that invokes methods for the timer.
-        TimerCallback tcb = statusChecker.CheckStatus;
-
-        // Create a timer that signals the delegate to invoke  
-        // CheckStatus after one second, and every 1/4 second  
-        // thereafter.
-        Console.WriteLine("{0} Creating timer.\n",
-            DateTime.Now.ToString("h:mm:ss.fff"));
-        Timer stateTimer = new Timer(tcb, autoEvent, 1000, 250);
-
-        // When autoEvent signals, change the period to every 
-        // 1/2 second.
-        autoEvent.WaitOne(5000, false);
-        stateTimer.Change(0, 500);
-        Console.WriteLine("\nChanging period.\n");
-
-        // When autoEvent signals the second time, dispose of  
-        // the timer.
-        autoEvent.WaitOne(5000, false);
-        stateTimer.Dispose();
-        Console.WriteLine("\nDestroying timer.");
-    }
-}
-
-class StatusChecker
-{
-    private int invokeCount;
-    private int maxCount;
-
-    public StatusChecker(int count)
-    {
-        invokeCount = 0;
-        maxCount = count;
-    }
-
-    // This method is called by the timer delegate. 
-    public void CheckStatus(Object stateInfo)
-    {
-        AutoResetEvent autoEvent = (AutoResetEvent)stateInfo;
-        Console.WriteLine("{0} Checking status {1,2}.",
-            DateTime.Now.ToString("h:mm:ss.fff"),
-            (++invokeCount).ToString());
-
-        if (invokeCount == maxCount)
+        /**
+         * arg[0] is the config file
+         * arg[2] is the throttler of choice
+         */ 
+        public static void Main(string[] args)
         {
-            // Reset the counter and signal Main.
-            invokeCount = 0;
-            autoEvent.Set();
+            if (args.Length != 2)
+            {
+                Console.WriteLine("exec SampleInput.txt SampleData");
+                Environment.Exit(-1);
+            }
+
+            String filename = args[0];
+            String content = args[1];
+            Byte[] bytes = File.ReadAllBytes(content);
+            var lines = File.ReadLines(filename);
+            
+            var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
+            var bps = new List<int>();
+            foreach (var l in lines)
+            {
+                var array = l.Split(new char[]{':'});
+               // ips.Add(array[0] + ":" + array[1]);
+                ips.Add("192.168.1.7" + ":" + array[1]);
+               
+                bps.Add(int.Parse(array[2]));
+            }
+
+            /** CHECK ASSUMPTION OF THE APPLICATION, THESE ASSERTION CAN BE REMOVED TO YIELD MORE FLEXIBLE APP **/
+            Debug.Assert(bytes.Length == 1024*1024*64,"File must be exactly 64 MBs - 67108864 , use 'fsutil file createnew sampledata 67108864' to create "); // must be 64 bytes
+            Debug.Assert(ips.Count == 64, "File must contain 64 IP based address"); 
+            Debug.Assert(bps.Count == 64, "File must contain 64 IP based address");
+
+
+            //var mt = new MultiplexThrottler<SimplePerDataBlockThrottlerPolicyHandler>(ips, bps, bytes);
+            var mt = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, bytes);
+            try
+            {
+                mt.ConnectAllDevices();
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e.Message);
+                Environment.Exit(-1);
+            }
+
+            // start to deliver
+            mt.DeliverAllDevices();
+         
+            /** CRAWLING **/
+            for (int i = 0; i <= 100; i++)
+            {
+                bool allDone = true;
+                foreach (var dm in mt.DeviceManagers)
+                {
+                    bool done = dm.SendCompleteSignal.WaitOne(1000);
+                    if (done)
+                        Console.WriteLine(dm.Ipaddr+":"+dm.Port + " is done");
+                    else
+                    {
+                        allDone = false;
+                        Console.WriteLine(
+                            String.Format("DEVICE:{0}  CurrentSpeed(bps):{1} TimeSpent:{2}", dm.Ipaddr, dm.Metrics.CurrentBitPerSecond, (dm.Metrics.LastTick - dm.Metrics.StartTick) / DeviceMetric.TICKPERMS));
+                    
+                    }
+                }
+                if (allDone)
+                {
+                    Console.WriteLine("ALL DONE!");
+                    foreach (var dm in mt.DeviceManagers)
+                    {
+                        Console.WriteLine(
+                            String.Format("COMPLETED=>DEVICE:{0}  CurrentSpeed(bps):{1} TimeSpent:{2}", dm.Ipaddr, dm.Metrics.CurrentBitPerSecond, (dm.Metrics.LastTick - dm.Metrics.StartTick) / DeviceMetric.TICKPERMS));
+                    }
+                    Environment.Exit(0);
+                }
+                else
+                    Thread.Sleep(5000);
+            }
+            Environment.Exit(-1); // error here
         }
+
+
     }
 }

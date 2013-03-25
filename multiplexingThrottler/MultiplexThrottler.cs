@@ -10,22 +10,21 @@ using System.Threading.Tasks;
 
 namespace multiplexingThrottler
 {
-    public class MultiplexThrottler
+    public class MultiplexThrottler<T> where T :IThrottlerPoclicyHandler, new()
     {
         /// FIELDS
-        protected readonly IList<DeviceManager> Ds = new List<DeviceManager>();
+        protected readonly IList<DeviceManager> _deviceManagers = new List<DeviceManager>();
         private Byte[] _content;
         private const int SOCKETTIMEOUT = 20000; //20s
-        private const int TIMEBLOCKSIZEINMS = 5000; //20s
+        private const int TIMEBLOCKSIZEINMS = 5000; //5s
 
-        private IThrottlerPoclicyHandler policy = new DummyThrottlerPolicyHandler();
+        private IThrottlerPoclicyHandler _policy ;
 
-        public IList<DeviceManager> DestSpecs
+        public IList<DeviceManager> DeviceManagers
         {
-            get { return Ds; }
+            get { return _deviceManagers; }
         }
 
-        ///////////////
 
         /// <summary>
         /// Construct a throttler
@@ -41,16 +40,22 @@ namespace multiplexingThrottler
             if (content.Length / destinations.Count * destinations.Count != content.Length)
                 throw new ArgumentException("The number of bytes must be evenly divided by destination number");
 
-            int blocksize = (content.Length + 1)/ destinations.Count;
+            int blocksize = (content.Length )/ destinations.Count;
             for (int i = 0; i < destinations.Count; i++)
             {
                 int startIdx = blocksize * i;
-                int endIdx = blocksize * (i + 1) - 1;
-                Ds.Add(new DeviceManager(destinations[i], speedInBps[i], content, startIdx, endIdx, TIMEBLOCKSIZEINMS));
+                int endIdx = blocksize * (i + 1) ;//none-inclusive
+                _deviceManagers.Add(new DeviceManager(destinations[i], speedInBps[i], content, startIdx, endIdx, TIMEBLOCKSIZEINMS));
             }
             this._content = content;
+            _policy = new T();
         }
 
+        public MultiplexThrottler<T> SetThrottlePolicyHandler(T handler)
+        {
+            _policy = handler;
+            return this;
+        }
         #region connection
         /**********************************************************************
          * CONNECTION
@@ -61,13 +66,13 @@ namespace multiplexingThrottler
         /// </summary>
         public void ConnectAllDevices()
         {
-            foreach (DeviceManager s in Ds)
+            foreach (var s in _deviceManagers)
             {
                 CreateClient(s);
             }
-            foreach (DeviceManager s in Ds)
+            foreach (var s in _deviceManagers) // make sure all clients are connected
             {
-                var r = s.InProcess.WaitOne(millisecondsTimeout: SOCKETTIMEOUT);
+                var r = s.ConnectionReadySignal.WaitOne(millisecondsTimeout: SOCKETTIMEOUT);
                 if (!r)
                     throw new ApplicationException(String.Format("Cannot initiate socket to client {0}:{1}", s.Ipaddr.ToString(), s.Port));
             }
@@ -92,7 +97,7 @@ namespace multiplexingThrottler
                 // Complete the connection.
                 cs.Client.EndConnect(ar);
                 Console.WriteLine("Socket connected to {0}",cs.Client.RemoteEndPoint);
-                cs.InProcess.Set(); // signal connection has been made
+                cs.ConnectionReadySignal.Set(); // signal connection has been made
             }
             catch (Exception e)
             {
@@ -105,6 +110,7 @@ namespace multiplexingThrottler
         #endregion
 
 
+        #region kick off data deliver to all devices
         /**********************************************************************
         * DATA DELIVERY
         **********************************************************************/
@@ -113,17 +119,18 @@ namespace multiplexingThrottler
         /// </summary>
         public void DeliverAllDevices()
         {
-            foreach (DeviceManager s in Ds)
+            foreach (DeviceManager s in _deviceManagers)
             {
                 // start transmit
-                policy.DispatchOneDataCycle(s);
+                _policy.DispatchOneDataCycle(s);
             }
         }
-     
-        
+
+
         /**********************************************************************
         * END OF DATA DELIVERY
         **********************************************************************/
+        #endregion
     }
 
 }

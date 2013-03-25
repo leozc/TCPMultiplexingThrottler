@@ -11,7 +11,7 @@ namespace multiplexingThrottler
      */
     public class DeviceManager : IDeviceManager
     {
-        const int MINTIMEBLOCK = 1000;
+        const int Mintimeblock = 1000;
         public int SpeedInBitPerSecond { get; private set; }    
         private readonly IPAddress _ipaddr;
         private readonly int _port;
@@ -24,7 +24,8 @@ namespace multiplexingThrottler
          */
         private int SpeedInBytePerTimeBlock { get; set; }
        
-        private readonly ManualResetEvent _inProcess;
+        private readonly ManualResetEvent _connectionReadySignal;
+        private readonly ManualResetEvent _sendCompleteSignal;
         private readonly DeviceMetric _metrics;
 
         #region idx for content
@@ -46,10 +47,12 @@ namespace multiplexingThrottler
             get { return _port; }
         }
 
-        public ManualResetEvent InProcess
+        public ManualResetEvent ConnectionReadySignal
         {
-            get { return _inProcess; }
+            get { return _connectionReadySignal; }
         }
+
+        public ManualResetEvent SendCompleteSignal { get{return _sendCompleteSignal;} }
 
         public Socket Client { get; set; }
 
@@ -77,50 +80,84 @@ namespace multiplexingThrottler
         {
             get { return _timeBlockinMs; }
         }
+
+
+        public long ExpectedByteRead
+        {
+            get {return (Metrics.CurrentTick - Metrics.StartTick)*SpeedInBitPerSecond / 1000; }
+        }
         #endregion
 
 
 
-
+        /// <summary>
+        /// Construct a devicemanager that keeps the state of remove device
+        /// </summary>
+        /// <param name="dest">the address of device manager in the form IP:PORT</param>
+        /// <param name="speedInBps">the numerical representation for the speed in term of bit per second</param>
+        /// <param name="content">the contnet byte array</param>
+        /// <param name="startIdx">the start of the index slice of the contnent inclusive</param>
+        /// <param name="endIdx">the end of the index slice of the contnent exclusive</param>
+        /// <param name="timeBlockinMs">the granularity of the rate control measure block. for example 2000 means the rate control block is 2*speedInBps bits per 2 second </param>
         public DeviceManager(string dest, int speedInBps, Byte[] content, int startIdx, int endIdx, int timeBlockinMs)
         {
-            if (timeBlockinMs < MINTIMEBLOCK)
+            if (timeBlockinMs < Mintimeblock)
                 throw new ArgumentException("TimeBlock Resolution must be larger than 1000ms, ideally 5000-10000 ms");
 
             String[] a = dest.Split(new char[] { ':' });
             _ipaddr = IPAddress.Parse(a[0]); // throw exception when it is illegal port number anyway
             _port = int.Parse(a[1]);
             SpeedInBitPerSecond = speedInBps;
-            _inProcess = new ManualResetEvent(false);
+            _connectionReadySignal = new ManualResetEvent(false);
+            _sendCompleteSignal = new ManualResetEvent(false);
             _content = content;
             _startIdx = startIdx;
             _endIdx = endIdx;
             _timeBlockinMs = timeBlockinMs;
             _offsetIdx = startIdx;
             _metrics = new DeviceMetric();
+            _metrics.TotalByte = endIdx - startIdx;
             // e.g. if bps = 8 and timeblockinMS is 5000(5 seconds) it is equal to 40 byte per 5 seconds //
             SpeedInBytePerTimeBlock = (int) (SpeedInBitPerSecond/1000.0/8.0*timeBlockinMs);
         }
 
 
-        public IAsyncResult DeliveryNextBlockOfData(AsyncCallback sendCallback)
+        public IAsyncResult DeliveryNextBlockOfData(AsyncCallback sendCallback, int numberOfBlock=1)
         {
             // Begin sending the data to the remote device.
             var index = OffsetIdx; // must called before GetNextDataTransferBlockSize
-            var datablockSize = GetNextDataTransferBlockSize();
+
+            var dataBlockSizeInByte = 0;
+            for (var i = 0; i < numberOfBlock;i++ )
+                dataBlockSizeInByte+= GetNextDataTransferBlockSize();
             
+            if (_metrics.StartTick == 0)
+                _metrics.StartTick = DateTime.Now.Ticks;
+
             _metrics.LastTick = DateTime.Now.Ticks;
-            if (datablockSize != 0)
+            if (dataBlockSizeInByte != 0)
             {
-                this._metrics.ByteSend = this._metrics.ByteSend + datablockSize; // pre add.
-                return Client.BeginSend(_content, index, datablockSize, SocketFlags.None,
+                this._metrics.ByteSend = this._metrics.ByteSend + dataBlockSizeInByte; // pre-add the write count;
+                return Client.BeginSend(_content, index, dataBlockSizeInByte, SocketFlags.None,
                                         sendCallback, this);
             }
             else
             {
-                Client.Close();
+                try
+                {
+                    Client.Close(3000); //job done!
+                }
+                finally
+                {
+                    _sendCompleteSignal.Set();
+                }
                 return null;
             }
+        }
+
+        public DeviceState GetDeviceState()
+        {
+            throw new NotImplementedException("TODO HERE");
         }
 
         /// <summary>
@@ -136,47 +173,21 @@ namespace multiplexingThrottler
             {
                 return 0; // done
             }
-            var diff = EndIdx - OffsetIdx;
+            var diff = EndIdx - OffsetIdx ;
             _offsetIdx += SpeedInBytePerTimeBlock;
             return _offsetIdx >= EndIdx ? diff : SpeedInBytePerTimeBlock;
         }
+
+        public int CompareTo(object obj)
+        {
+            var m = obj as IDeviceManager;
+            if(m==null)
+                throw new ArgumentException("Expect IDeviceManage Object in CompareTo function");
+            return (int)(m.Metrics.LastTick - this.Metrics.LastTick);
+        }
+
+       
     }
 
-    public class DeviceMetric
-    {
-        private long _startTick;
-        private long _lastTick;
-        private long _byteSend;
-        private long _totalByte;
-        
-        /***** properties *****/
-        public long CurrentTS
-        {
-            get { return DateTime.Now.Ticks; }
-        }
 
-        public long StartTick
-        {
-            get { return _startTick; }
-            set { _startTick = value; }
-        }
-
-        public long ByteSend
-        {
-            get { return _byteSend; }
-            set { _byteSend = value; }
-        }
-
-        public long LastTick
-        {
-            get { return _lastTick; }
-            set { _lastTick = value; }
-        }
-
-        public long TotalByte
-        {
-            get { return _totalByte; }
-            set { _totalByte = value; }
-        }
-    }
 }
