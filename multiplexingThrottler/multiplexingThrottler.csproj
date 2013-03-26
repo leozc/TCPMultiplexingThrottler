@@ -47,7 +47,7 @@
     <Compile Include="CatchupThrottlerPolicyHandler.cs" />
     <Compile Include="DeviceMetric.cs" />
     <Compile Include="SimplePerDataBlockThrottlerPolicyHandler.cs" />
-    <Compile Include="DummyThrottlerPolicyHandler.cs" />
+    <Compile Include="UnlimitedThrottlerPolicyHandler.cs" />
     <Compile Include="IThrottlerPoclicyHandler.cs" />
     <Compile Include="DeviceManager.cs" />
     <Compile Include="IDeviceManager.cs" />
@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <None Include="ClassDiagram1.cd" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

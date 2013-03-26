@@ -12,18 +12,18 @@ namespace multiplexingThrottler
     public class DeviceManager : IDeviceManager
     {
         const int Mintimeblock = 1000;
-        public int SpeedInBitPerSecond { get; private set; }    
+        public int SpeedInBitPerSecond { get; private set; }
         private readonly IPAddress _ipaddr;
         private readonly int _port;
         private readonly Byte[] _content;
         private readonly int _timeBlockinMs;
-        
-        
+
+
         /**
          * Rate control resolution
          */
-        private int SpeedInBytePerTimeBlock { get; set; }
-       
+        public int SpeedInBytePerTimeBlock { get; set; }
+
         private readonly ManualResetEvent _connectionReadySignal;
         private readonly ManualResetEvent _sendCompleteSignal;
         private readonly DeviceMetric _metrics;
@@ -32,6 +32,7 @@ namespace multiplexingThrottler
         private int _offsetIdx;
         private readonly int _endIdx;
         private readonly int _startIdx;
+        public int ContentSizeForOperate { get { return _endIdx - _startIdx; } }
         #endregion
 
 
@@ -52,7 +53,7 @@ namespace multiplexingThrottler
             get { return _connectionReadySignal; }
         }
 
-        public ManualResetEvent SendCompleteSignal { get{return _sendCompleteSignal;} }
+        public ManualResetEvent SendCompleteSignal { get { return _sendCompleteSignal; } }
 
         public Socket Client { get; set; }
 
@@ -82,10 +83,15 @@ namespace multiplexingThrottler
         }
 
 
-        public long ExpectedByteRead
+        public long ExpectedByteSent
         {
-            get {return (Metrics.CurrentTick - Metrics.StartTick)*SpeedInBitPerSecond / 1000; }
+            get { 
+
+                long result = (Metrics.CurrentTick - Metrics.StartTick) / DeviceMetric.TICKPERMS / 1000 * SpeedInBitPerSecond / 8;
+                return result >= EndIdx - StartIdx ? EndIdx - StartIdx : result;
+                }
         }
+
         #endregion
 
 
@@ -118,19 +124,58 @@ namespace multiplexingThrottler
             _metrics = new DeviceMetric();
             _metrics.TotalByte = endIdx - startIdx;
             // e.g. if bps = 8 and timeblockinMS is 5000(5 seconds) it is equal to 40 byte per 5 seconds //
-            SpeedInBytePerTimeBlock = (int) (SpeedInBitPerSecond/1000.0/8.0*timeBlockinMs);
+            SpeedInBytePerTimeBlock = (int)(SpeedInBitPerSecond / 8.0* (timeBlockinMs / 1000.0));
+           
         }
 
 
-        public IAsyncResult DeliveryNextBlockOfData(AsyncCallback sendCallback, int numberOfBlock=1)
+        DeviceState _deviceState = DeviceState.Init;
+        public DeviceState GetDeviceState()
+        {
+            return _deviceState;
+        }
+
+
+
+        public int CompareTo(object obj)
+        {
+            var m = obj as IDeviceManager;
+            if (m == null)
+                throw new ArgumentException("Expect IDeviceManage Object in CompareTo function");
+            return (int)(m.Metrics.LastTick - this.Metrics.LastTick);
+        }
+
+        #region
+        public Socket CreateClient()
+        {
+            var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            this.Client = client;
+            return client;
+        }
+        public IAsyncResult AsyncBeginConnect(AsyncCallback connectCallback)
+        {
+            this._deviceState = DeviceState.Duringconnection;
+            return Client.BeginConnect(new IPEndPoint(this.Ipaddr, this.Port), connectCallback, this);
+        }
+        public void CompleteConnectionReadySignal(IAsyncResult r)
+        {
+            ConnectionReadySignal.Set();
+            // Complete the connection.
+            Client.EndConnect(r);
+            this._deviceState = DeviceState.AfterConnection;
+        }
+        #endregion
+
+        #region Data delivery
+        public IAsyncResult DeliveryNextBlockOfData(AsyncCallback sendCallback, int numberOfBlock = 1)
         {
             // Begin sending the data to the remote device.
             var index = OffsetIdx; // must called before GetNextDataTransferBlockSize
 
             var dataBlockSizeInByte = 0;
-            for (var i = 0; i < numberOfBlock;i++ )
-                dataBlockSizeInByte+= GetNextDataTransferBlockSize();
-            
+            for (var i = 0; i < numberOfBlock; i++)
+                dataBlockSizeInByte += GetNextDataTransferBlockSize();
+
             if (_metrics.StartTick == 0)
                 _metrics.StartTick = DateTime.Now.Ticks;
 
@@ -138,26 +183,54 @@ namespace multiplexingThrottler
             if (dataBlockSizeInByte != 0)
             {
                 this._metrics.ByteSend = this._metrics.ByteSend + dataBlockSizeInByte; // pre-add the write count;
-                return Client.BeginSend(_content, index, dataBlockSizeInByte, SocketFlags.None,
+                this._deviceState = DeviceState.Duringsend;
+                try
+                {
+                    return Client.BeginSend(_content, index, dataBlockSizeInByte, SocketFlags.None,
                                         sendCallback, this);
+
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine(this + "Error @ close " + e.Message);
+                    _deviceState = DeviceState.Error;
+                    return null;
+                }
             }
             else
             {
                 try
                 {
                     Client.Close(3000); //job done!
+                    _deviceState = DeviceState.Completesend;
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine(this + "Error @ close " + e.Message);
+                    _deviceState = DeviceState.Error;
                 }
                 finally
                 {
                     _sendCompleteSignal.Set();
+                  
                 }
                 return null;
             }
         }
-
-        public DeviceState GetDeviceState()
+        public int CompleteOneDataCycle(IAsyncResult r)
         {
-            throw new NotImplementedException("TODO HERE");
+            int byteTransferred = 0;
+            try
+            {
+                this._deviceState = DeviceState.Duringsend;
+                byteTransferred = Client.EndSend(r);
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine(e.Message);
+                _deviceState = DeviceState.Error;
+            }
+            return byteTransferred;
         }
 
         /// <summary>
@@ -173,21 +246,19 @@ namespace multiplexingThrottler
             {
                 return 0; // done
             }
-            var diff = EndIdx - OffsetIdx ;
+            var diff = EndIdx - OffsetIdx;
             _offsetIdx += SpeedInBytePerTimeBlock;
             return _offsetIdx >= EndIdx ? diff : SpeedInBytePerTimeBlock;
         }
-
-        public int CompareTo(object obj)
+        #endregion
+        public override string ToString()
         {
-            var m = obj as IDeviceManager;
-            if(m==null)
-                throw new ArgumentException("Expect IDeviceManage Object in CompareTo function");
-            return (int)(m.Metrics.LastTick - this.Metrics.LastTick);
+            return String.Format("DeviceManaer:IP={0}:PORT={1}:DeviceState={2}:SpeedInBytePerTimeBlock={3}:ExpectedByteSent:{4}:ByteSent:{5}",
+                this.Ipaddr, this.Port, this._deviceState, this.SpeedInBytePerTimeBlock, this.ExpectedByteSent,this._metrics.ByteSend);
         }
-
-       
     }
+
+
 
 
 }

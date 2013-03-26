@@ -37,5 +37,11 @@ namespace multiplexingThrottler
 
         /** the total size of the buffer needs to deliver in byte **/
         public long TotalByte { get; set; }
+
+        public override string ToString()
+        {
+            return String.Format("DeviceMetrics:StartTick={0}:LastTick={1}:ByteSend={2}:TotalByte={3}:CurrentBitPerSecond={4}",
+                StartTick, LastTick, ByteSend, TotalByte, CurrentBitPerSecond);
+        }
     }
 }

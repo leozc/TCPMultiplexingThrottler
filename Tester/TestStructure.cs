@@ -24,11 +24,12 @@ namespace Tester
 
             for (int i =0;i<ds.Count;i++)
             {
-                Console.WriteLine("Start = " + ds[i].StartIdx + " End = " +ds[i].EndIdx + " Size= "+(ds[i].EndIdx-ds[i].StartIdx));
-                Assert.AreEqual(256*i,ds[i].StartIdx);
-                Assert.AreEqual(256*(i+1), ds[i].EndIdx);
-                Assert.AreEqual(256, ds[i].EndIdx - ds[i].StartIdx);
-                Assert.AreEqual(i+1, ds[i].SpeedInBitPerSecond);
+                DeviceManager device = (DeviceManager)ds[i];
+                Console.WriteLine("Start = " + device.StartIdx + " End = " + device.EndIdx + " Size= " + (device.EndIdx - device.StartIdx));
+                Assert.AreEqual(256 * i, device.StartIdx);
+                Assert.AreEqual(256 * (i + 1), device.EndIdx);
+                Assert.AreEqual(256, device.EndIdx - device.StartIdx);
+                Assert.AreEqual(i + 1, device.SpeedInBitPerSecond);
             }
         }
         [TestMethod]

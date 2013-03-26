@@ -29,10 +29,11 @@ namespace multiplexingThrottler
             foreach (var l in lines)
             {
                 var array = l.Split(new char[]{':'});
-               // ips.Add(array[0] + ":" + array[1]);
-                ips.Add("192.168.1.7" + ":" + array[1]);
+                ips.Add(array[0] + ":" + array[1]);
+                //ips.Add("127.0.0.1" + ":" + array[1]);
                
                 bps.Add(int.Parse(array[2]));
+                //bps.Add(512*1024);
             }
 
             /** CHECK ASSUMPTION OF THE APPLICATION, THESE ASSERTION CAN BE REMOVED TO YIELD MORE FLEXIBLE APP **/
@@ -40,9 +41,11 @@ namespace multiplexingThrottler
             Debug.Assert(ips.Count == 64, "File must contain 64 IP based address"); 
             Debug.Assert(bps.Count == 64, "File must contain 64 IP based address");
 
-
+            /** PICK ONE IMPLEMENTATION **/
             //var mt = new MultiplexThrottler<SimplePerDataBlockThrottlerPolicyHandler>(ips, bps, bytes);
-            var mt = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, bytes);
+            //var mt = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, bytes);
+            var mt = new MultiplexThrottler<CatchupThrottlerPolicyHandler>(ips, bps, bytes);
+
             try
             {
                 mt.ConnectAllDevices();
@@ -69,7 +72,7 @@ namespace multiplexingThrottler
                     {
                         allDone = false;
                         Console.WriteLine(
-                            String.Format("DEVICE:{0}  CurrentSpeed(bps):{1} TimeSpent:{2}", dm.Ipaddr, dm.Metrics.CurrentBitPerSecond, (dm.Metrics.LastTick - dm.Metrics.StartTick) / DeviceMetric.TICKPERMS));
+                            String.Format("DEVICE:{0}  CurrentSpeed(bps):{1} TimeSpent:{2}", dm, dm.Metrics.CurrentBitPerSecond, (dm.Metrics.LastTick - dm.Metrics.StartTick) / DeviceMetric.TICKPERMS));
                     
                     }
                 }
@@ -79,7 +82,7 @@ namespace multiplexingThrottler
                     foreach (var dm in mt.DeviceManagers)
                     {
                         Console.WriteLine(
-                            String.Format("COMPLETED=>DEVICE:{0}  CurrentSpeed(bps):{1} TimeSpent:{2}", dm.Ipaddr, dm.Metrics.CurrentBitPerSecond, (dm.Metrics.LastTick - dm.Metrics.StartTick) / DeviceMetric.TICKPERMS));
+                            String.Format("COMPLETED=>DEVICE:{0}  CurrentSpeed(bps):{1} TimeSpent:{2}", dm, dm.Metrics.CurrentBitPerSecond, (dm.Metrics.LastTick - dm.Metrics.StartTick) / DeviceMetric.TICKPERMS));
                     }
                     Environment.Exit(0);
                 }

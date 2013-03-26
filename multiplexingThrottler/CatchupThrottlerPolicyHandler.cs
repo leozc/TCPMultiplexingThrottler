@@ -20,18 +20,27 @@ namespace multiplexingThrottler
            // Convert the string data to byte data using ASCII encoding.
            ////// get the number of future block
            long byteSent = dm.Metrics.ByteSend;
-           long startTSinSecond = dm.Metrics.StartTick / DeviceMetric.TICKPERMS/1000;
-           long currentInSecond = dm.Metrics.CurrentTick / DeviceMetric.TICKPERMS / 1000;
-           int ratio = 1;
-           long diff = currentInSecond - startTSinSecond ;
-           if (diff >= 5)// don't do anything for first 5 seconds
-           { 
-               ratio = (int) (diff *1000 / dm.TimeBlockinMs);
+           long startTSinMS = dm.Metrics.StartTick / DeviceMetric.TICKPERMS;
+           long lastTSinMS = dm.Metrics.LastTick / DeviceMetric.TICKPERMS;
+           long currentInMS = dm.Metrics.CurrentTick / DeviceMetric.TICKPERMS ;
+           int numberOfBlock = 1;
+
+           if (dm.ExpectedByteSent >= dm.ContentSizeForOperate)
+               numberOfBlock = 1;
+           else if (dm.ExpectedByteSent - dm.Metrics.ByteSend >= dm.SpeedInBytePerTimeBlock)
+           {
+               numberOfBlock = (int)(dm.ExpectedByteSent - dm.Metrics.ByteSend) / dm.SpeedInBytePerTimeBlock;
            }
 
-           IAsyncResult r = dm.DeliveryNextBlockOfData(SendCompleteHandler,ratio);
+           if (numberOfBlock > 5)
+               numberOfBlock = 5; // don't do more than 10 block
+           
+
+
+           IAsyncResult r = dm.DeliveryNextBlockOfData(SendCompleteHandler,numberOfBlock);
            if (r == null)
                Console.WriteLine(dm.Ipaddr.ToString() + " completed");
        }
+
    }
 }

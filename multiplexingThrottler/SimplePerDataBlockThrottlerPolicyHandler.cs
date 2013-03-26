@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using C5;
+using System.Diagnostics;
 namespace multiplexingThrottler
 {
    /**
@@ -14,7 +15,7 @@ namespace multiplexingThrottler
         // contention point...
         private IPriorityQueue<IDeviceManager> todoqueue;
         private Thread worker;
-        private int _sleepInterval = 200;
+        private int _sleepInterval = 100;
         public static readonly object locker = new object();
 
         public SimplePerDataBlockThrottlerPolicyHandler()
@@ -30,28 +31,37 @@ namespace multiplexingThrottler
        {
            // Convert the string data to byte data using ASCII encoding.
            ////// get the number of future block
+ 
            IAsyncResult r = dm.DeliveryNextBlockOfData(SendCompleteHandler);
            if (r == null)
                Console.WriteLine(dm.Ipaddr.ToString() + " completed");
+          
        }
         public virtual void SendCompleteHandler(IAsyncResult deviceManager)
        {
-           
+            Stopwatch stopwatch = new Stopwatch();
+
            try
            {
-               var dm = deviceManager.AsyncState as DeviceManager;
+               var dm = deviceManager.AsyncState as IDeviceManager;
                if (dm == null)
                    throw new ArgumentException("Hey what is wrong here? The DispatchOneDataCycle put in wrong arg??? Found: "+deviceManager.GetType());
-               int byteTransferred = dm.Client.EndSend(deviceManager);
-
+               
+               int byteSent = dm.CompleteOneDataCycle(deviceManager); //must call this
+               
                var ts = dm.Metrics.CurrentTick - dm.Metrics.LastTick;
-               if (ts > dm.TimeBlockinMs * DeviceMetric.TICKPERMS)
+
+               if (IfProceedToNextDataCycle(dm))
+               {
+                   
                    DispatchOneDataCycle(dm);
+               }
                else
                {
+                 
                    lock (locker)
                    {
-                       PutInQueue(dm);   
+                       PutInQueue(dm);
                    }
                }
 
@@ -60,6 +70,13 @@ namespace multiplexingThrottler
            {
                Console.WriteLine(e.ToString());
            }
+           stopwatch.Stop();
+        }
+
+        protected static bool IfProceedToNextDataCycle(IDeviceManager dm)
+        {
+            return (dm.ExpectedByteSent >= dm.ContentSizeForOperate) ||
+                                 dm.ExpectedByteSent - dm.Metrics.ByteSend >= dm.SpeedInBytePerTimeBlock;
         }
 
         /// <summary>
@@ -68,7 +85,10 @@ namespace multiplexingThrottler
         /// </summary>
         private void ClawTodo()
         {
+            
             while (true){
+                Stopwatch s = new Stopwatch();
+                s.Start();
                 IDeviceManager dm = null;
                 lock (locker)
                 {
@@ -80,19 +100,29 @@ namespace multiplexingThrottler
                     {
                     }
                 }
+                //Console.WriteLine("ClawTodo:unlock =" + s.ElapsedTicks);
 
-                if (dm != null && dm.Metrics.LastTick + dm.TimeBlockinMs * DeviceMetric.TICKPERMS <= dm.Metrics.CurrentTick) //due
+                if (dm != null && IfProceedToNextDataCycle(dm)) //due
                 {
                     DispatchOneDataCycle(dm);
+                    //Console.WriteLine("ClawTodo:dispached =" + s.ElapsedTicks);
                 }
                 else
                 {
                     if (dm != null) { lock (locker) { todoqueue.Add(dm); } }
                     Thread.Sleep(_sleepInterval);
                 }
+                s.Stop();
+
+                //if (dm != null)
+                //{
+                //    Console.WriteLine(dm);
+                //    Console.WriteLine(dm.Metrics);
+                //}
+
             }
         }
-        private void PutInQueue(DeviceManager dm)
+        private void PutInQueue(IDeviceManager dm)
         {
             todoqueue.Add(dm);
         }

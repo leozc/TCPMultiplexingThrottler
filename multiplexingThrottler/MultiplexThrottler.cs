@@ -13,14 +13,14 @@ namespace multiplexingThrottler
     public class MultiplexThrottler<T> where T :IThrottlerPoclicyHandler, new()
     {
         /// FIELDS
-        protected readonly IList<DeviceManager> _deviceManagers = new List<DeviceManager>();
+        protected readonly IList<IDeviceManager> _deviceManagers = new List<IDeviceManager>();
         private Byte[] _content;
         private const int SOCKETTIMEOUT = 20000; //20s
-        private const int TIMEBLOCKSIZEINMS = 5000; //5s
+        private const int TIMEBLOCKSIZEINMS = 3000; //5s
 
         private IThrottlerPoclicyHandler _policy ;
 
-        public IList<DeviceManager> DeviceManagers
+        public IList<IDeviceManager> DeviceManagers
         {
             get { return _deviceManagers; }
         }
@@ -68,7 +68,8 @@ namespace multiplexingThrottler
         {
             foreach (var s in _deviceManagers)
             {
-                CreateClient(s);
+                s.CreateClient();
+                s.AsyncBeginConnect(ConnectCallback);
             }
             foreach (var s in _deviceManagers) // make sure all clients are connected
             {
@@ -79,13 +80,7 @@ namespace multiplexingThrottler
         }//ConnectAllDevices
 
         ///Build a socket and start the connection asynchorously, update the atomic token in spec 
-        private Socket CreateClient(DeviceManager spec)
-        {
-            var client = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            spec.Client = client;
-            var result = client.BeginConnect(new IPEndPoint(spec.Ipaddr, spec.Port), ConnectCallback, spec);
-            return client;
-        }
+        
 
         private void ConnectCallback(IAsyncResult ar)
         {
@@ -94,10 +89,8 @@ namespace multiplexingThrottler
                 // Retrieve the socket from the state object.
                 var cs = (DeviceManager)ar.AsyncState;
 
-                // Complete the connection.
-                cs.Client.EndConnect(ar);
                 Console.WriteLine("Socket connected to {0}",cs.Client.RemoteEndPoint);
-                cs.ConnectionReadySignal.Set(); // signal connection has been made
+                cs.CompleteConnectionReadySignal(ar); // signal connection has been made
             }
             catch (Exception e)
             {

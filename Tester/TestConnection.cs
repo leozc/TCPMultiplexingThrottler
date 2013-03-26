@@ -107,7 +107,7 @@ namespace Tester
 
         #region test Send
         /**
-         * Simple test for 1 Device with small buffer
+         * Simple test for 1 Device with small buffer and verify data integrity 
          */
         [TestMethod]
         [TestCategory("send")]
@@ -151,7 +151,7 @@ namespace Tester
 
 
         /**
-      * Simple test for 1 Device with larger buffer
+      * Simple test for 1 Device with larger buffer, and verify data integrity 
       */
         [TestMethod]
         [TestCategory("send")]
@@ -239,23 +239,23 @@ namespace Tester
             VerifyMetrics(mt, size, deviceCount);
         }
 
-     
 
-        #endregion
-
-
-        #region Policy
+        /**
+         * Simple test for 64 Device with larger buffer
+         */
         [TestMethod]
-        [TestCategory("policy")]
-        public void TestSend_simplePerDataBlock_correctness()
+        [TestCategory("send")]
+        public void TestSend_64_largeBuff()
         {
             var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
             var bps = new List<int>();
             var liseners = new List<DummyServer>();
-            var deviceCount = 1;
+            var threads = new List<Thread>();
+            var deviceCount = 64;
             const int baseport = 8000;
-            var size = 30000;
+            var size = 1024*1024*64;
             _clientConnectionChecked = new Dictionary<int, bool>();
+           
             Console.WriteLine("START");
             //single server
             for (int i = 0; i < deviceCount; i++)
@@ -263,6 +263,103 @@ namespace Tester
                 int port = baseport + i;
                 ips.Add("127.0.0.1:" + (port));
                 bps.Add((i + 1) * 1000);
+                //_clientConnectionChecked.Add(port, false);
+
+                var server = new DummyServer(port);
+                var oThread = new Thread(new ThreadStart(server.Start));
+                oThread.Start();
+                liseners.Add(server);
+                threads.Add(oThread);
+
+            }
+            var content = genArray(size);
+
+            var mt = new MultiplexThrottler<UnlimitedThrottlerPolicyHandler>(ips, bps, content);
+
+            mt.ConnectAllDevices();
+            Assert.IsTrue(liseners.All(t => t.socketAccepted.WaitOne(10000)));
+            Assert.AreEqual(deviceCount, liseners.Count);
+            mt.DeliverAllDevices();
+            Assert.IsTrue(liseners.All(t => t.socketCompleted.WaitOne(30000)), "Fail to finish reading?");
+            DeepVerify(liseners, size, deviceCount, content);
+            VerifyMetrics(mt, size, deviceCount);
+            VerifyDeviceState(mt);
+            
+        }
+
+
+        #endregion
+
+
+        #region Policy
+        [TestMethod]
+        [TestCategory("policy")]
+        [TestCategory("simplePerDataBlock")]
+        public void TestSend_simplePerDataBlock_correctness_1_device()
+        {
+            var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
+            var bps = new List<int>();
+            var liseners = new List<DummyServer>();
+            var deviceCount = 1;
+            const int baseport = 8000;
+            var size = 1024*1024*10;
+            _clientConnectionChecked = new Dictionary<int, bool>();
+            Console.WriteLine("START");
+            //single server
+            for (int i = 0; i < deviceCount; i++)
+            {
+                int port = baseport + i;
+                ips.Add("127.0.0.1:" + (port));
+                bps.Add((i + 1) * 1024*512*10);
+                var server = new DummyServer(port);
+                var oThread = new Thread(new ThreadStart(server.Start));
+                oThread.Start();
+                liseners.Add(server);
+
+            }
+            var content = genArray(size);
+
+            var mt = new MultiplexThrottler<SimplePerDataBlockThrottlerPolicyHandler>(ips, bps, content);
+
+            mt.ConnectAllDevices();
+            Assert.IsTrue(liseners.All(t => t.socketAccepted.WaitOne(10000)));
+            Assert.AreEqual(deviceCount, liseners.Count);
+            mt.DeliverAllDevices();
+            Assert.IsTrue(liseners.All(t => t.socketCompleted.WaitOne(50000)), "Fail to finish reading?");
+            DeepVerify(liseners, size, deviceCount, content);
+            VerifyMetrics(mt, size, deviceCount);
+            VerifyDeviceState(mt);
+            /**
+             * PLESE VERIFY THE OUTPUT AND MAKE SURE CurrentBitPerSecond is around 1024*512
+               e.g.
+                Debug Trace:
+                LISTENER CLOSED
+                DeviceManaer:IP=127.0.0.1:PORT=8000:DeviceState=Completesend
+                DeviceMetrics:StartTick=634998483144502330:LastTick=634998484747489612:ByteSend=10485760:TotalByte=10485760:CurrentBitPerSecond=523313
+
+            **/
+        }
+
+
+        [TestMethod]
+        [TestCategory("policy")]
+        [TestCategory("simplePerDataBlock")]
+        public void TestSend_simplePerDataBlock_correctness_3_device()
+        {
+            var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
+            var bps = new List<int>();
+            var liseners = new List<DummyServer>();
+            var deviceCount = 3;
+            const int baseport = 8000;
+            var size = 1024 * 1024 * 18;
+            _clientConnectionChecked = new Dictionary<int, bool>();
+            Console.WriteLine("START");
+            //single server
+            for (int i = 0; i < deviceCount; i++)
+            {
+                int port = baseport + i;
+                ips.Add("127.0.0.1:" + (port));
+                bps.Add((i + 1) * 1024 * 512);
                 //_clientConnectionChecked.Add(port, false);
 
                 var server = new DummyServer(port);
@@ -282,31 +379,46 @@ namespace Tester
             Assert.IsTrue(liseners.All(t => t.socketCompleted.WaitOne(300000)), "Fail to finish reading?");
             DeepVerify(liseners, size, deviceCount, content);
             VerifyMetrics(mt, size, deviceCount);
-        }
+            VerifyDeviceState(mt);
+            /**
+             * PLESE VERIFY THE OUTPUT AND MAKE SURE CurrentBitPerSecond is around 1024*512
+               Test Name:	TestSend_simplePerDataBlock_correctness_3_device
+            DeviceManaer:IP=127.0.0.1:PORT=8000:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:6291456:ByteSent:6291456
+            DeviceMetrics:StartTick=634998686139434293:LastTick=634998687099891444:ByteSend=6291456:TotalByte=6291456:CurrentBitPerSecond=524042 target: 524288
+            DeviceManaer:IP=127.0.0.1:PORT=8001:DeviceState=Completesend:SpeedInBytePerTimeBlock=393216:ExpectedByteSent:6291456:ByteSent:6291456
+            DeviceMetrics:StartTick=634998686139454311:LastTick=634998686619807972:ByteSend=6291456:TotalByte=6291456:CurrentBitPerSecond=1047811 target: 1048576
+            DeviceManaer:IP=127.0.0.1:PORT=8002:DeviceState=Completesend:SpeedInBytePerTimeBlock=589824:ExpectedByteSent:6291456:ByteSent:6291456
+            DeviceMetrics:StartTick=634998686139464324:LastTick=634998686470132854:ByteSend=6291456:TotalByte=6291456:CurrentBitPerSecond=1522157 target: 1572864
 
+
+            **/
+        }
 
         [TestMethod]
         [TestCategory("policy")]
-        [TestCategory("integration")]
-        [TestCategory("manual")]
-        public void TestSend_simplePerDataBlock_manual1()
+        [TestCategory("simplePerDataBlock")]
+        public void TestSend_simplePerDataBlock_correctness_64_device()
         {
             var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
             var bps = new List<int>();
             var liseners = new List<DummyServer>();
-            var deviceCount = 4;
+            var deviceCount = 64;
             const int baseport = 8000;
-            var size = 1024*1024*64;
+            var size = 1024 * 1024 * 18;
             _clientConnectionChecked = new Dictionary<int, bool>();
             Console.WriteLine("START");
             //single server
             for (int i = 0; i < deviceCount; i++)
             {
                 int port = baseport + i;
-                ips.Add("192.168.1.7:" + (port));
-                //ips.Add("127.0.0.1:" + (port));
-                bps.Add((i + 1) * 1024*1024);
+                ips.Add("127.0.0.1:" + (port));
+                bps.Add(( 1) * 1024 * 512);
                 //_clientConnectionChecked.Add(port, false);
+
+                var server = new DummyServer(port);
+                var oThread = new Thread(new ThreadStart(server.Start));
+                oThread.Start();
+                liseners.Add(server);
 
             }
             var content = genArray(size);
@@ -315,17 +427,78 @@ namespace Tester
 
             mt.ConnectAllDevices();
             Assert.IsTrue(liseners.All(t => t.socketAccepted.WaitOne(10000)));
-           // Assert.AreEqual(deviceCount, liseners.Count);
+            Assert.AreEqual(deviceCount, liseners.Count);
             mt.DeliverAllDevices();
-            Assert.IsTrue(mt.DeviceManagers.All(t => t.SendCompleteSignal.WaitOne(300000)), "Fail to finish reading?");
-            //DeepVerify(liseners, size, deviceCount, content);
+            Assert.IsTrue(liseners.All(t => t.socketCompleted.WaitOne(300000)), "Fail to finish reading?");
+            DeepVerify(liseners, size, deviceCount, content);
             VerifyMetrics(mt, size, deviceCount);
+            VerifyDeviceState(mt);
+            /**
+             * PLESE VERIFY THE OUTPUT AND MAKE SURE CurrentBitPerSecond is around 1024*512
+               Test Name:	TestSend_simplePerDataBlock_correctness_3_device
+            DeviceManaer:IP=127.0.0.1:PORT=8062:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:294912:ByteSent:294912
+            DeviceMetrics:StartTick=634998692213737519:LastTick=634998692264693525:ByteSend=294912:TotalByte=294912:CurrentBitPerSecond=463061 target=>524288
+            DeviceManaer:IP=127.0.0.1:PORT=8063:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:294912:ByteSent:294912
+            DeviceMetrics:StartTick=634998692213777556:LastTick=634998692264683770:ByteSend=294912:TotalByte=294912:CurrentBitPerSecond=463515 target=>524288
+
+
+            **/
+        }
+
+        [TestMethod]
+        [TestCategory("policy")]
+        [TestCategory("catchup")]
+        public void TestSend_catchupThrottlerPolicyHandler_correctness_3_device()
+        {
+            var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
+            var bps = new List<int>();
+            var liseners = new List<DummyServer>();
+            var deviceCount = 3;
+            const int baseport = 8000;
+            var size = 1024 * 1024 * 18;
+            _clientConnectionChecked = new Dictionary<int, bool>();
+            Console.WriteLine("START");
+            //single server
+            for (int i = 0; i < deviceCount; i++)
+            {
+                int port = baseport + i;
+                ips.Add("127.0.0.1:" + (port));
+                bps.Add((i + 1) * 1024 * 512);
+                //_clientConnectionChecked.Add(port, false);
+
+                var server = new DummyServer(port);
+                var oThread = new Thread(new ThreadStart(server.Start));
+                oThread.Start();
+                liseners.Add(server);
+
+            }
+            var content = genArray(size);
+
+            var mt = new MultiplexThrottler<CatchupThrottlerPolicyHandler>(ips, bps, content);
+
+            mt.ConnectAllDevices();
+            Assert.IsTrue(liseners.All(t => t.socketAccepted.WaitOne(10000)));
+            Assert.AreEqual(deviceCount, liseners.Count);
+            mt.DeliverAllDevices();
+            Assert.IsTrue(liseners.All(t => t.socketCompleted.WaitOne(300000)), "Fail to finish reading?");
+            DeepVerify(liseners, size, deviceCount, content);
+            VerifyMetrics(mt, size, deviceCount);
+            VerifyDeviceState(mt);
+            /** 
+                DeviceManaer:IP=127.0.0.1:PORT=8000:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:6291456:ByteSent:6291456
+                DeviceMetrics:StartTick=634998697242416870:LastTick=634998698202813824:ByteSend=6291456:TotalByte=6291456:CurrentBitPerSecond=524075 -- target: 524288
+                DeviceManaer:IP=127.0.0.1:PORT=8001:DeviceState=Completesend:SpeedInBytePerTimeBlock=393216:ExpectedByteSent:6291456:ByteSent:6291456
+                DeviceMetrics:StartTick=634998697242426879:LastTick=634998697722750463:ByteSend=6291456:TotalByte=6291456:CurrentBitPerSecond=1047877 -- target: 1048576
+                DeviceManaer:IP=127.0.0.1:PORT=8002:DeviceState=Completesend:SpeedInBytePerTimeBlock=589824:ExpectedByteSent:6291456:ByteSent:6291456
+                DeviceMetrics:StartTick=634998697242426879:LastTick=634998697573145423:ByteSend=6291456:TotalByte=6291456:CurrentBitPerSecond=1521927  -- target: 1572864
+            **/
+
+
         }
         [TestMethod]
         [TestCategory("policy")]
-        [TestCategory("integration")]
-        [TestCategory("manual")]
-        public void TestSend_simplePerDataBlock_manual2()
+        [TestCategory("catchup")]
+        public void TestSend_catchupThrottlerPolicyHandler_correctness_64_device()
         {
             var ips = new List<String>(); // { "127.0.0.1:8000", "127.0.0.1:8001", "127.0.0.1:8002", "127.0.0.1:8003" };
             var bps = new List<int>();
@@ -339,24 +512,44 @@ namespace Tester
             for (int i = 0; i < deviceCount; i++)
             {
                 int port = baseport + i;
-                ips.Add("192.168.1.7:" + (port));
-                //ips.Add("127.0.0.1:" + (port));
-                bps.Add((i + 1) * 1024 * 500);
+                ips.Add("127.0.0.1:" + (port));
+                bps.Add(( 1) * 1024 * 512);
                 //_clientConnectionChecked.Add(port, false);
+
+                var server = new DummyServer(port);
+                var oThread = new Thread(new ThreadStart(server.Start));
+                oThread.Start();
+                liseners.Add(server);
 
             }
             var content = genArray(size);
 
-            var mt = new MultiplexThrottler<SimplePerDataBlockThrottlerPolicyHandler>(ips, bps, content);
+            var mt = new MultiplexThrottler<CatchupThrottlerPolicyHandler>(ips, bps, content);
 
             mt.ConnectAllDevices();
             Assert.IsTrue(liseners.All(t => t.socketAccepted.WaitOne(10000)));
-            // Assert.AreEqual(deviceCount, liseners.Count);
+            Assert.AreEqual(deviceCount, liseners.Count);
             mt.DeliverAllDevices();
-            Assert.IsTrue(mt.DeviceManagers.All(t => t.SendCompleteSignal.WaitOne(300000)), "Fail to finish reading?");
-            //DeepVerify(liseners, size, deviceCount, content);
+            Assert.IsTrue(liseners.All(t => t.socketCompleted.WaitOne(300000)), "Fail to finish reading?");
+            DeepVerify(liseners, size, deviceCount, content);
             VerifyMetrics(mt, size, deviceCount);
+            VerifyDeviceState(mt);
+            /** 
+                DeviceManaer:IP=127.0.0.1:PORT=8059:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:1048576:ByteSent:1048576
+                DeviceMetrics:StartTick=634998700072591646:LastTick=634998700233246695:ByteSend=1048576:TotalByte=1048576:CurrentBitPerSecond=522166 target - 524288
+                DeviceManaer:IP=127.0.0.1:PORT=8060:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:1048576:ByteSent:1048576
+                DeviceMetrics:StartTick=634998700072591646:LastTick=634998700233566958:ByteSend=1048576:TotalByte=1048576:CurrentBitPerSecond=521128
+                DeviceManaer:IP=127.0.0.1:PORT=8061:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:1048576:ByteSent:1048576
+                DeviceMetrics:StartTick=634998700072601655:LastTick=634998700232846319:ByteSend=1048576:TotalByte=1048576:CurrentBitPerSecond=523502
+                DeviceManaer:IP=127.0.0.1:PORT=8062:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:1048576:ByteSent:1048576
+                DeviceMetrics:StartTick=634998700072601655:LastTick=634998700232826304:ByteSend=1048576:TotalByte=1048576:CurrentBitPerSecond=523568
+                DeviceManaer:IP=127.0.0.1:PORT=8063:DeviceState=Completesend:SpeedInBytePerTimeBlock=196608:ExpectedByteSent:1048576:ByteSent:1048576
+                DeviceMetrics:StartTick=634998700072601655:LastTick=634998700233286705:ByteSend=1048576:TotalByte=1048576:CurrentBitPerSecond=522069
+            **/
+
+
         }
+      
 
         #endregion 
 
@@ -409,11 +602,15 @@ namespace Tester
             Assert.IsTrue(mt.DeviceManagers.All(t => t.Metrics.TotalByte == size / deviceCount), "TotalByte counter incorrect");
             Assert.IsTrue(mt.DeviceManagers.All(t => t.Metrics.TotalByte == t.Metrics.ByteSend), "ByteSend counter incorrect");
             foreach (IDeviceManager d in  mt.DeviceManagers){
-                System.Diagnostics.Debug.WriteLine(d.Ipaddr+":"+d.Metrics.CurrentBitPerSecond);
+                System.Diagnostics.Debug.WriteLine(d);
+                System.Diagnostics.Debug.WriteLine(d.Metrics);
             }
 
         }
 
+        /**
+         * Verify data byte by byte
+         */
         private void DeepVerify(List<DummyServer> liseners, int size, int deviceCount, byte[] content)
         {
             for (int i = 0; i < liseners.Count; i++)
@@ -442,6 +639,19 @@ namespace Tester
             SetDeedBeef(content, size);
             return content;
         }
+
+        private static void VerifyDeviceState<T>(MultiplexThrottler<T> mt) where T : IThrottlerPoclicyHandler, new()
+        {
+            foreach (IDeviceManager dm in mt.DeviceManagers)
+            {
+                var ready = dm.SendCompleteSignal.WaitOne(5000);
+                Assert.IsTrue(ready, "Device Not ready? " + dm);
+                Assert.IsTrue(dm.GetDeviceState() == DeviceState.Completesend);
+                Assert.IsTrue(dm.Metrics.ByteSend == dm.Metrics.TotalByte);
+            
+            }
+        }
+
         #endregion
 
     }
