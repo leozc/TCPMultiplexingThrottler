@@ -42,6 +42,7 @@ Low threading overhead: it has two user threads, one for main thread(which mostl
 1. A **MultiplexThrottler** has a list of **IDeviceManager** and injected with **IThrottlerPoclicyHandler**.
 2. A **IDeviceManager** has **DeivceMetric**, and each **IDeviceManager** interacts with **IThrottlerPoclicyHandler** through async callbacks.
 3. A **DeviceMetrics** is managed by a **IDeviceManager**, which contains the metrics like timestamp, bytesent and current speed etc. 
+
 ### Some concrete classes
 #### Throttlers
 1. *UnlimitedThrottlerPolicyHandler.cs* : unlimited rate throttler, good for testing purpose.
