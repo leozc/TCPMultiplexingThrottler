@@ -182,7 +182,7 @@ namespace multiplexingThrottler
             _metrics.LastTick = DateTime.Now.Ticks;
             if (dataBlockSizeInByte != 0)
             {
-                this._metrics.ByteSend = this._metrics.ByteSend + dataBlockSizeInByte; // pre-add the write count;
+                this._metrics.ByteSent = this._metrics.ByteSent + dataBlockSizeInByte; // pre-add the write count;
                 this._deviceState = DeviceState.Duringsend;
                 try
                 {
@@ -254,7 +254,7 @@ namespace multiplexingThrottler
         public override string ToString()
         {
             return String.Format("DeviceManaer:IP={0}:PORT={1}:DeviceState={2}:SpeedInBytePerTimeBlock={3}:ExpectedByteSent:{4}:ByteSent:{5}",
-                this.Ipaddr, this.Port, this._deviceState, this.SpeedInBytePerTimeBlock, this.ExpectedByteSent,this._metrics.ByteSend);
+                this.Ipaddr, this.Port, this._deviceState, this.SpeedInBytePerTimeBlock, this.ExpectedByteSent,this._metrics.ByteSent);
         }
     }
 

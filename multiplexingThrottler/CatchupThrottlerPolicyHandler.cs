@@ -7,7 +7,7 @@ using C5;
 namespace multiplexingThrottler
 {
    /**
-    * This implementation of the policy allows catching up burst
+    * This implementation of the policy allows catching up with limited burst (token bucket)
     */
     public class CatchupThrottlerPolicyHandler :SimplePerDataBlockThrottlerPolicyHandler
     {
@@ -19,7 +19,7 @@ namespace multiplexingThrottler
        {
            // Convert the string data to byte data using ASCII encoding.
            ////// get the number of future block
-           long byteSent = dm.Metrics.ByteSend;
+           long byteSent = dm.Metrics.ByteSent;
            long startTSinMS = dm.Metrics.StartTick / DeviceMetric.TICKPERMS;
            long lastTSinMS = dm.Metrics.LastTick / DeviceMetric.TICKPERMS;
            long currentInMS = dm.Metrics.CurrentTick / DeviceMetric.TICKPERMS ;
@@ -27,9 +27,9 @@ namespace multiplexingThrottler
 
            if (dm.ExpectedByteSent >= dm.ContentSizeForOperate)
                numberOfBlock = 1;
-           else if (dm.ExpectedByteSent - dm.Metrics.ByteSend >= dm.SpeedInBytePerTimeBlock)
+           else if (dm.ExpectedByteSent - dm.Metrics.ByteSent >= dm.SpeedInBytePerTimeBlock)
            {
-               numberOfBlock = (int)(dm.ExpectedByteSent - dm.Metrics.ByteSend) / dm.SpeedInBytePerTimeBlock;
+               numberOfBlock = (int)(dm.ExpectedByteSent - dm.Metrics.ByteSent) / dm.SpeedInBytePerTimeBlock;
            }
 
            if (numberOfBlock > 5)

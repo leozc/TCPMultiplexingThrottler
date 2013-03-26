@@ -600,7 +600,7 @@ namespace Tester
         private void VerifyMetrics<T>(MultiplexThrottler<T> mt, int size, int deviceCount) where T : IThrottlerPoclicyHandler, new()
         {
             Assert.IsTrue(mt.DeviceManagers.All(t => t.Metrics.TotalByte == size / deviceCount), "TotalByte counter incorrect");
-            Assert.IsTrue(mt.DeviceManagers.All(t => t.Metrics.TotalByte == t.Metrics.ByteSend), "ByteSend counter incorrect");
+            Assert.IsTrue(mt.DeviceManagers.All(t => t.Metrics.TotalByte == t.Metrics.ByteSent), "ByteSend counter incorrect");
             foreach (IDeviceManager d in  mt.DeviceManagers){
                 System.Diagnostics.Debug.WriteLine(d);
                 System.Diagnostics.Debug.WriteLine(d.Metrics);
@@ -647,7 +647,7 @@ namespace Tester
                 var ready = dm.SendCompleteSignal.WaitOne(5000);
                 Assert.IsTrue(ready, "Device Not ready? " + dm);
                 Assert.IsTrue(dm.GetDeviceState() == DeviceState.Completesend);
-                Assert.IsTrue(dm.Metrics.ByteSend == dm.Metrics.TotalByte);
+                Assert.IsTrue(dm.Metrics.ByteSent == dm.Metrics.TotalByte);
             
             }
         }

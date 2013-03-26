@@ -20,7 +20,7 @@ namespace multiplexingThrottler
                 if (LastTick - StartTick < TICKPERMS * 5) // avoid 0 or overflow
                     return 0;
                 else
-                    return (long)(ByteSend * 8 / ((LastTick - StartTick) / TICKPERMS / 1000.0));
+                    return (long)(ByteSent * 8 / ((LastTick - StartTick) / TICKPERMS / 1000.0));
             }
         }
 
@@ -32,7 +32,7 @@ namespace multiplexingThrottler
         public long LastTick { get; set; }
 
         /** the The total byte sent so far **/
-        public long ByteSend { get; set; }
+        public long ByteSent { get; set; }
 
 
         /** the total size of the buffer needs to deliver in byte **/
@@ -41,7 +41,7 @@ namespace multiplexingThrottler
         public override string ToString()
         {
             return String.Format("DeviceMetrics:StartTick={0}:LastTick={1}:ByteSend={2}:TotalByte={3}:CurrentBitPerSecond={4}",
-                StartTick, LastTick, ByteSend, TotalByte, CurrentBitPerSecond);
+                StartTick, LastTick, ByteSent, TotalByte, CurrentBitPerSecond);
         }
     }
 }

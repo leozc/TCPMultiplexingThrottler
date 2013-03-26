@@ -8,7 +8,7 @@ using System.Diagnostics;
 namespace multiplexingThrottler
 {
    /**
-    * Dummy Sleep timerbased throttler, does nothing good but testing
+    * Simple constant rate throttler, no burst 
     */
     public class SimplePerDataBlockThrottlerPolicyHandler : IThrottlerPoclicyHandler
     {
@@ -76,7 +76,7 @@ namespace multiplexingThrottler
         protected static bool IfProceedToNextDataCycle(IDeviceManager dm)
         {
             return (dm.ExpectedByteSent >= dm.ContentSizeForOperate) ||
-                                 dm.ExpectedByteSent - dm.Metrics.ByteSend >= dm.SpeedInBytePerTimeBlock;
+                                 dm.ExpectedByteSent - dm.Metrics.ByteSent >= dm.SpeedInBytePerTimeBlock;
         }
 
         /// <summary>
