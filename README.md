@@ -32,11 +32,11 @@ The impmentation is based on asynchronous TCP IO (BeginSend but not SendAsync, S
 Low threading overhead: it has two user threads, one for main thread(which mostly waiting for completion), and another for deferred socket delivery delivery. 
 
 ### Main Interfaces
-**IThrottlerPoclicyHandler**: The throttler interfaces, implement DispatchOneDataCycle and SendCompleteHandler function to control the throttling rate with the help of the info deviceManager provides.
-    void SendCompleteHandler(IAsyncResult deviceManager);
-	void DispatchOneDataCycle(IDeviceManager deviceManager);
-**IDeviceManager**: the abstraction object that manages the connection of one remote device and providing data delivery methods as well corresponding metrics.
-**MultiplexThrottler**: Manage devices, dispatch traffic and provide mutex to wait for state changes of devices.
+- **IThrottlerPoclicyHandler**: The throttler interfaces, implement *DispatchOneDataCycle* and *SendCompleteHandler* function to control the throttling rate with the help of the info deviceManager provides.
+	> *void SendCompleteHandler(IAsyncResult deviceManager);*
+	> *void DispatchOneDataCycle(IDeviceManager deviceManager);*
+- **IDeviceManager**: the abstraction object that manages the connection of one remote device and providing data delivery methods as well corresponding metrics.
+- **MultiplexThrottler**: Manage devices, dispatch traffic and provide mutex to wait for state changes of devices.
 
 ### Object Navigation
 1. A **MultiplexThrottler** has a list of **IDeviceManager** and injected with **IThrottlerPoclicyHandler**.
@@ -50,4 +50,4 @@ Low threading overhead: it has two user threads, one for main thread(which mostl
 3. *CatchupThrottlerPolicyHandler.cs*: constant rate throttler with burst, around ~99% of targeted rate for 64 clients on local loop
 
 #### DeviceManager
-1. *DeviceManager.cs *: main device manager
+1. *DeviceManager.cs*: main device manager
