@@ -18,16 +18,11 @@ namespace multiplexingThrottler
 
        public override void DispatchOneDataCycle(IDeviceManager dm)
        {
-           // Convert the string data to byte data using ASCII encoding.
-           ////// get the number of future block
-           long byteSent = dm.Metrics.ByteSent;
-           long startTSinMS = dm.Metrics.StartTick / DeviceMetric.TICKPERMS;
-           long lastTSinMS = dm.Metrics.LastTick / DeviceMetric.TICKPERMS;
-           long currentInMS = dm.Metrics.CurrentTick / DeviceMetric.TICKPERMS ;
            int numberOfBlock = 1;
 
            if (dm.ExpectedByteSent >= dm.ContentSizeForOperate)
                numberOfBlock = 1;
+//calculate the burst blocks.
            else if (dm.ExpectedByteSent - dm.Metrics.ByteSent >= dm.SpeedInBytePerTimeBlock)
            {
                numberOfBlock = (int)(dm.ExpectedByteSent - dm.Metrics.ByteSent) / dm.SpeedInBytePerTimeBlock;
