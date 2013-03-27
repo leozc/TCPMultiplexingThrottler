@@ -4,7 +4,7 @@ Sample implementation for Multiplexing Throttler in C#.
 Please see https://github.com/leozc/TCPMulportsServer for a multi-port server with speed metrics, which is a good tool for testing with this project.
 
 ## Goal
-This tool can help to distribute a large buffer to multiple TCP endpoints concurrently and respect the rate given.
+This tool is desiged to distribute a large buffer to multiple TCP endpoints concurrently and respect the rate given in the spec for each end point.
 
 ## Usage
 ### API
@@ -17,12 +17,13 @@ This tool can help to distribute a large buffer to multiple TCP endpoints concur
     public MultiplexThrottler(IList<String> destinations, IList<int> speedInBps, Byte[] content)'
 
 ### Main
-A very simple main exe for demonstration purpose, see the sample in Program.cs, and change it when needed.
+A very simple main executable is here for demonstration purpose, please see the code in Program.cs, and change it to suit your needs.
     EXEC SampleInput.txt SampleData
-	
-Tips: use this command to generate an exact 64 MB files.
+	where SampleInput.txt is the specification (Client EP and speed limit in bps) and SampleData is the data you want to deliver.
+####Tips: 
+- use command followed to generate an exact 64 MB files.
     fsutil file createnew sampledata 67108864'
-
+- See SampleInput.txt for the file format of specification. 
 ## Design
 ### Pluginable Design
 As the nature of problem, it is arguably impossible to write an algorithm does optimal throttling in all aspects, so it is critical to have a flexible framework and design to enable low-overhead changes, fast experiment as well as a good separation among the data delivery, devices management and data throttling policy 
