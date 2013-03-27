@@ -59,7 +59,7 @@ namespace multiplexingThrottler
             // start to deliver
             mt.DeliverAllDevices();
          
-            /** CRAWLING **/
+            /** CRAWLING, WAIT FOR RESULT ... **/
             for (int i = 0; i <= 100; i++)
             {
                 bool allDone = true;
@@ -76,6 +76,9 @@ namespace multiplexingThrottler
                     
                     }
                 }
+                /**
+                 * REPORT
+                 */
                 if (allDone)
                 {
                     Console.WriteLine("ALL DONE!");
