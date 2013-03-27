@@ -34,7 +34,6 @@ namespace multiplexingThrottler
         /** the The total byte sent so far **/
         public long ByteSent { get; set; }
 
-
         /** the total size of the buffer needs to deliver in byte **/
         public long TotalByte { get; set; }
 

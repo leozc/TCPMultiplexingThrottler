@@ -24,8 +24,7 @@ namespace multiplexingThrottler
         {
             get { return _deviceManagers; }
         }
-
-
+        
         /// <summary>
         /// Construct a throttler
         /// </summary>
@@ -118,8 +117,6 @@ namespace multiplexingThrottler
                 _policy.DispatchOneDataCycle(s);
             }
         }
-
-
         /**********************************************************************
         * END OF DATA DELIVERY
         **********************************************************************/

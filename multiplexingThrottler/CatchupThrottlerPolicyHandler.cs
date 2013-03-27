@@ -11,6 +11,7 @@ namespace multiplexingThrottler
     */
     public class CatchupThrottlerPolicyHandler :SimplePerDataBlockThrottlerPolicyHandler
     {
+        const int BURSTMAX=5;
         public CatchupThrottlerPolicyHandler() :base()
         {
         }
@@ -32,15 +33,12 @@ namespace multiplexingThrottler
                numberOfBlock = (int)(dm.ExpectedByteSent - dm.Metrics.ByteSent) / dm.SpeedInBytePerTimeBlock;
            }
 
-           if (numberOfBlock > 5)
-               numberOfBlock = 5; // don't do more than 10 block
+           if (numberOfBlock > BURSTMAX)
+               numberOfBlock = BURSTMAX; // don't do more than BURSTMAX blocks
            
-
-
            IAsyncResult r = dm.DeliveryNextBlockOfData(SendCompleteHandler,numberOfBlock);
            if (r == null)
                Console.WriteLine(dm.Ipaddr.ToString() + " completed");
        }
-
    }
 }

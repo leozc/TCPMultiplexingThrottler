@@ -29,9 +29,6 @@ namespace multiplexingThrottler
 
         public virtual void DispatchOneDataCycle(IDeviceManager dm)
        {
-           // Convert the string data to byte data using ASCII encoding.
-           ////// get the number of future block
- 
            IAsyncResult r = dm.DeliveryNextBlockOfData(SendCompleteHandler);
            if (r == null)
                Console.WriteLine(dm.Ipaddr.ToString() + " completed");
@@ -48,23 +45,19 @@ namespace multiplexingThrottler
                    throw new ArgumentException("Hey what is wrong here? The DispatchOneDataCycle put in wrong arg??? Found: "+deviceManager.GetType());
                
                int byteSent = dm.CompleteOneDataCycle(deviceManager); //must call this
-               
                var ts = dm.Metrics.CurrentTick - dm.Metrics.LastTick;
 
                if (IfProceedToNextDataCycle(dm))
                {
-                   
                    DispatchOneDataCycle(dm);
                }
                else
                {
-                 
                    lock (locker)
                    {
                        PutInQueue(dm);
                    }
                }
-
            }
            catch (Exception e)
            {
@@ -85,10 +78,7 @@ namespace multiplexingThrottler
         /// </summary>
         private void ClawTodo()
         {
-            
             while (true){
-                Stopwatch s = new Stopwatch();
-                s.Start();
                 IDeviceManager dm = null;
                 lock (locker)
                 {
@@ -100,26 +90,16 @@ namespace multiplexingThrottler
                     {
                     }
                 }
-                //Console.WriteLine("ClawTodo:unlock =" + s.ElapsedTicks);
 
                 if (dm != null && IfProceedToNextDataCycle(dm)) //due
                 {
                     DispatchOneDataCycle(dm);
-                    //Console.WriteLine("ClawTodo:dispached =" + s.ElapsedTicks);
                 }
                 else
                 {
                     if (dm != null) { lock (locker) { todoqueue.Add(dm); } }
                     Thread.Sleep(_sleepInterval);
                 }
-                s.Stop();
-
-                //if (dm != null)
-                //{
-                //    Console.WriteLine(dm);
-                //    Console.WriteLine(dm.Metrics);
-                //}
-
             }
         }
         private void PutInQueue(IDeviceManager dm)

@@ -5,7 +5,6 @@ using System.Threading;
 
 namespace multiplexingThrottler
 {
-
     /**
      * Represnet states of the TCP device and their specification.
      */
@@ -17,7 +16,6 @@ namespace multiplexingThrottler
         private readonly int _port;
         private readonly Byte[] _content;
         private readonly int _timeBlockinMs;
-
 
         /**
          * Rate control resolution
@@ -34,8 +32,6 @@ namespace multiplexingThrottler
         private readonly int _startIdx;
         public int ContentSizeForOperate { get { return _endIdx - _startIdx; } }
         #endregion
-
-
 
         #region GETTER&SETTERS
         public IPAddress Ipaddr
@@ -94,8 +90,6 @@ namespace multiplexingThrottler
 
         #endregion
 
-
-
         /// <summary>
         /// Construct a devicemanager that keeps the state of remove device
         /// </summary>
@@ -128,14 +122,11 @@ namespace multiplexingThrottler
            
         }
 
-
         DeviceState _deviceState = DeviceState.Init;
         public DeviceState GetDeviceState()
         {
             return _deviceState;
         }
-
-
 
         public int CompareTo(object obj)
         {
@@ -188,7 +179,6 @@ namespace multiplexingThrottler
                 {
                     return Client.BeginSend(_content, index, dataBlockSizeInByte, SocketFlags.None,
                                         sendCallback, this);
-
                 }
                 catch (Exception e)
                 {
@@ -257,8 +247,4 @@ namespace multiplexingThrottler
                 this.Ipaddr, this.Port, this._deviceState, this.SpeedInBytePerTimeBlock, this.ExpectedByteSent,this._metrics.ByteSent);
         }
     }
-
-
-
-
 }
