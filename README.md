@@ -47,8 +47,8 @@ Low threading overhead: it has two user threads, one for main thread(which mostl
 ### Some concrete classes
 #### Throttlers
 1. *UnlimitedThrottlerPolicyHandler.cs* : unlimited rate throttler, good for testing purpose.
-2. *SimplePerDataBlockThrottlerPolicyHandler.cs*: constant rate throttler around ~95% of targeted rate for 64 clients on local loop
-3. *CatchupThrottlerPolicyHandler.cs*: constant rate throttler with burst, around ~99% of targeted rate for 64 clients on local loop
+2. *SimplePerDataBlockThrottlerPolicyHandler.cs*: constant rate throttler, it can achieve around ~95% of targeted rate for 64 clients on local loop.
+3. *CatchupThrottlerPolicyHandler.cs*: more robust implementation of *SimplePerDataBlockThrottlerPolicyHandler.cs*, it is a constant rate throttler with burst; it can achieve around ~99% of targeted rate for 64 clients on local loop.
 
 #### DeviceManager
 1. *DeviceManager.cs*: main device manager
